@@ -180,8 +180,6 @@ class RT_Transcoder_Handler {
 		}
 
 		add_action( 'init', array( $this, 'handle_callback' ), 20 );
-		add_action( 'wp_ajax_rt_hide_transcoding_notice', array( $this, 'hide_transcoding_notice' ), 1 );
-		add_action( 'wp_ajax_rt_enter_api_key', array( $this, 'enter_api_key' ), 1 );
 		add_action( 'wp_ajax_rt_disable_transcoding', array( $this, 'disable_transcoding' ), 1 );
 		add_action( 'wp_ajax_rt_enable_transcoding', array( $this, 'enable_transcoding' ), 1 );
 		add_action( 'add_attachment', array( $this, 'after_upload_pdf' ) );
@@ -238,7 +236,7 @@ class RT_Transcoder_Handler {
 
 			$job_type = 'video';
 
-			if ( ( ! empty( $type_array ) && 'audio' === $type_array[0] ) || in_array( $extension, explode( ',', $this->audio_extensions ), true ) ) {
+			if ( ( ! empty( $type_array ) && ! empty( $type_array[0] ) && 'audio' === $type_array[0] ) || in_array( $extension, explode( ',', $this->audio_extensions ), true ) ) {
 				$job_type = 'audio';
 			} elseif ( in_array( $extension, explode( ',', $this->other_extensions ), true ) ) {
 				$job_type            = $extension;
@@ -269,7 +267,7 @@ class RT_Transcoder_Handler {
 					'file_url'     => rawurlencode( $url ),
 					'callback_url' => rawurlencode( trailingslashit( home_url() ) . 'index.php' ),
 					'force'        => 0,
-					'formats'      => ( true === $autoformat ) ? ( ( 'video' === $type_array[0] ) ? 'mp4' : 'mp3' ) : $autoformat,
+					'formats'      => ( true === $autoformat ) ? ( ( ! empty( $type_array[0] ) && 'video' === $type_array[0] ) ? 'mp4' : 'mp3' ) : $autoformat,
 					'thumb_count'  => $options_video_thumb,
 				),
 			);
@@ -1264,38 +1262,12 @@ class RT_Transcoder_Handler {
 	}
 
 	/**
-	 * Hide notices.
-	 *
-	 * @since 1.0.0
-	 */
-	public function hide_transcoding_notice() {
-		update_site_option( 'rt-transcoding-service-notice', true );
-		update_site_option( 'rt-transcoding-expansion-notice', true );
-		echo true;
-		die();
-	}
-
-	/**
-	 * Check whether key is entered or not.
-	 *
-	 * @since 1.0
-	 */
-	public function enter_api_key() {
-		$apikey = transcoder_filter_input( INPUT_GET, 'apikey', FILTER_SANITIZE_FULL_SPECIAL_CHARS );
-		if ( ! empty( $apikey ) ) {
-			echo wp_json_encode( array( 'apikey' => $apikey ) );
-		} else {
-			echo wp_json_encode( array( 'error' => esc_html__( 'Please enter the license key.', 'transcoder' ) ) );
-		}
-		die();
-	}
-
-	/**
 	 * Disable transcoding.
 	 *
 	 * @since 1.0.0
 	 */
 	public function disable_transcoding() {
+		check_ajax_referer( 'rt_disable_transcoding', 'rt_transcoder_nonce', true );
 		update_site_option( 'rt-transcoding-api-key', '' );
 		esc_html_e( 'Transcoding disabled successfully.', 'transcoder' );
 		die();
@@ -1307,6 +1279,7 @@ class RT_Transcoder_Handler {
 	 * @since 1.0.0
 	 */
 	public function enable_transcoding() {
+		check_ajax_referer( 'rt_enable_transcoding', 'rt_transcoder_nonce', true );
 		update_site_option( 'rt-transcoding-api-key', $this->stored_api_key );
 		esc_html_e( 'Transcoding enabled successfully.', 'transcoder' );
 		die();
